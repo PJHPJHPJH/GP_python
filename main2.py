@@ -1,11 +1,8 @@
+# 载入第三方库
 from flask import Flask, make_response
 from flask import jsonify
-
-app = Flask(__name__)
-
-# 载入第三方库
 import numpy
-
+import pandas as pd
 # import tensorflow as tf
 # 解决版本兼容性问题
 import tensorflow.compat.v1 as tf
@@ -18,12 +15,28 @@ from collections import defaultdict
 from datetime import datetime
 
 
+
+
+
+app = Flask(__name__)
+
+
+
+
 # 载入数据
 
 def load_data(data_path):
     '''
         data_path 数据存放的路径
     '''
+
+    data = pd.read_csv(data_path)
+    print(data.shape)
+
+    # 改变索引顺序
+    data = data.loc[:, ['visitorid', 'itemid', 'event', 'timestamp']]
+    data = numpy.array(data)
+
     # 创建一个set的改进版本，在不存在key时返回默认值
     user_ratings = defaultdict(set)
 
@@ -32,19 +45,20 @@ def load_data(data_path):
     max_i_id = -1
 
     # 读取数据
-    with open(data_path, 'r') as f:
-        for line in f.readlines():
-            # print(line)
-            # 数据格式：user_id item_id rating timestamp
-            # 训练时只用到user和item
-            u, i, _, _ = line.split("\t")
-            u = int(u)
-            i = int(i)
-            # 构建user-item的交互表
-            # 若user点击过item则加入user_ratings中
-            user_ratings[u].add(i)
-            max_u_id = max(u, max_u_id)
-            max_i_id = max(i, max_i_id)
+    for m in range(data.shape[0]):
+        # 数据格式：user_id item_id rating timestamp
+        # 训练时只用到user和item
+        #         u, i, _, _ = line.split("\t")
+        u = numpy.array(data[m][0])
+
+        u = int(u)
+        i = numpy.array(data[m][1])
+        i = int(i)
+        # 构建user-item的交互表
+        # 若user点击过item则加入user_ratings中
+        user_ratings[u].add(i)
+        max_u_id = max(u, max_u_id)
+        max_i_id = max(i, max_i_id)
     print("max_u_id:", max_u_id)
     print("max_i_id:", max_i_id)
     return max_u_id, max_i_id, user_ratings
@@ -178,7 +192,7 @@ def bpr_mf(user_count, item_count, hidden_dim):
 
 @app.route("/")
 def home():
-    data_path = os.path.join('D:\\Computer\\Python\\projects\\GraduationProject\\ml-100k', 'u.data')
+    data_path = "./event_100000.csv"
     user_count, item_count, user_ratings = load_data(data_path)
     user_ratings_test = generate_test(user_ratings)
 
